@@ -143,7 +143,6 @@ def document_rag_explorer(parameters: SkillInput):
                             content=response_data['content']
                         )
                     )
-                    logger.info(f"DEBUG: Generated main HTML, length: {len(main_html)}")
                     
                     # Create separate sources HTML
                     sources_html = force_ascii_replace(
@@ -151,12 +150,11 @@ def document_rag_explorer(parameters: SkillInput):
                             references=response_data['references']
                         )
                     )
-                    logger.info(f"DEBUG: Generated sources HTML, length: {len(sources_html)}")
                     title = response_data['title']
                 except Exception as e:
-                    logger.error(f"DEBUG: Error rendering HTML templates: {str(e)}")
+                    logger.error(f"Error rendering HTML templates: {str(e)}")
                     import traceback
-                    logger.error(f"DEBUG: Template error traceback: {traceback.format_exc()}")
+                    logger.error(f"Template error traceback: {traceback.format_exc()}")
                     main_html = f"<p>Error rendering content: {str(e)}</p>"
                     sources_html = "<p>Error rendering sources</p>"
                     title = "Template Error"
@@ -200,42 +198,19 @@ def document_rag_explorer(parameters: SkillInput):
     visualizations = []
     
     try:
-        logger.info(f"DEBUG: Creating response tab with title: {title}")
-        logger.info(f"DEBUG: Response content length: {len(response_content)} characters")
-        logger.info(f"DEBUG: References content length: {len(references_content)} characters")
+        logger.info(f"Creating response tab: {title}")
         
         # Response tab
         response_vars = {"response_content": response_content}
-        logger.info(f"DEBUG: Response vars keys: {list(response_vars.keys())}")
-        
         response_layout_json = json.loads(parameters.arguments.response_layout)
-        logger.info(f"DEBUG: Response layout parsed successfully")
-        
         rendered_response = wire_layout(response_layout_json, response_vars)
-        logger.info(f"DEBUG: Response layout rendered successfully, type: {type(rendered_response)}")
-        
         visualizations.append(SkillVisualization(title=title, layout=rendered_response))
-        logger.info(f"DEBUG: Response visualization added successfully")
-        
+
         # Sources tab
-        logger.info(f"DEBUG: Creating sources tab")
-        logger.info(f"DEBUG: Sources content length: {len(sources_content)} characters")
-        
         sources_vars = {"sources_content": sources_content}
-        logger.info(f"DEBUG: Sources vars keys: {list(sources_vars.keys())}")
-        
         sources_layout_json = json.loads(parameters.arguments.sources_layout)
-        logger.info(f"DEBUG: Sources layout parsed successfully")
-        
         rendered_sources = wire_layout(sources_layout_json, sources_vars)
-        logger.info(f"DEBUG: Sources layout rendered successfully, type: {type(rendered_sources)}")
-        
         visualizations.append(SkillVisualization(title="Sources", layout=rendered_sources))
-        logger.info(f"DEBUG: Sources visualization added successfully")
-        
-        logger.info(f"DEBUG: Total visualizations created: {len(visualizations)}")
-        for i, viz in enumerate(visualizations):
-            logger.info(f"DEBUG: Visualization {i+1}: title='{viz.title}', layout_type={type(viz.layout)}")
             
     except Exception as e:
         logger.error(f"ERROR: Failed to create visualizations: {str(e)}")
@@ -243,7 +218,7 @@ def document_rag_explorer(parameters: SkillInput):
         logger.error(f"ERROR: Full traceback: {traceback.format_exc()}")
         
         # Fallback to simple HTML if wire_layout fails
-        logger.info("DEBUG: Falling back to simple HTML visualizations")
+        logger.info("Falling back to simple HTML visualizations")
         simple_response_html = f"<div style='padding:20px;'>{main_html}{references_content}</div>"
         simple_sources_html = f"<div style='padding:20px;'><h2>Document Sources</h2>{sources_html}</div>"
         
@@ -251,7 +226,6 @@ def document_rag_explorer(parameters: SkillInput):
             SkillVisualization(title=title, layout=simple_response_html),
             SkillVisualization(title="Sources", layout=simple_sources_html)
         ]
-        logger.info(f"DEBUG: Fallback visualizations created: {len(visualizations)}")
     
     # Return skill output with final_prompt for insights and narrative=None like other skills
     return SkillOutput(
@@ -325,7 +299,6 @@ def load_document_sources():
         skill_dir = os.path.dirname(os.path.abspath(__file__))
         pack_file = os.path.join(skill_dir, "pack.json")
         
-        logger.info(f"DEBUG: Looking for pack.json in skill directory: {pack_file}")
         
         # Check if pack.json exists in the skill directory
         if not os.path.exists(pack_file):
@@ -335,16 +308,12 @@ def load_document_sources():
             
             if os.path.exists(pack_file_data):
                 pack_file = pack_file_data
-                logger.info(f"DEBUG: Found pack.json in data directory: {pack_file}")
             else:
                 # Fallback: try the old Skill Resources path if environment variables are available
-                logger.info(f"DEBUG: pack.json not found in skill bundle, trying Skill Resources as fallback")
                 
                 try:
                     from ar_paths import ARTIFACTS_PATH
-                    logger.info(f"DEBUG: Successfully imported ARTIFACTS_PATH: {ARTIFACTS_PATH}")
                 except ImportError as e:
-                    logger.info(f"DEBUG: Could not import ar_paths, using environment variable: {e}")
                     ARTIFACTS_PATH = os.environ.get('AR_DATA_BASE_PATH', '/artifacts')
                 
                 # Get environment variables for path construction
@@ -363,30 +332,24 @@ def load_document_sources():
                     )
                     if os.path.exists(resource_path):
                         pack_file = resource_path
-                        logger.info(f"DEBUG: Found pack.json in Skill Resources: {pack_file}")
                     else:
                         pack_file = None
-                        logger.warning(f"DEBUG: No pack.json found in bundle or Skill Resources")
+                        logger.warning("No pack.json found in bundle or Skill Resources")
                 else:
                     pack_file = None
-                    logger.warning(f"DEBUG: No pack.json found and missing environment variables for Skill Resources")
+                    logger.warning("No pack.json found and missing environment variables for Skill Resources")
         else:
-            logger.info(f"DEBUG: Found pack.json in skill bundle: {pack_file}")
         
         if pack_file and os.path.exists(pack_file):
             logger.info(f"Loading documents from: {pack_file}")
             with open(pack_file, 'r', encoding='utf-8') as f:
                 resource_contents = json.load(f)
-                logger.info(f"DEBUG: Loaded JSON structure type: {type(resource_contents)}")
-                
                 # Handle different pack.json formats
                 if isinstance(resource_contents, list):
-                    logger.info(f"DEBUG: Processing {len(resource_contents)} files from pack.json")
                     # Format: [{"File": "doc.pdf", "Chunks": [{"Text": "...", "Page": 1}]}]
                     for processed_file in resource_contents:
                         file_name = processed_file.get("File", "unknown_file")
                         chunks = processed_file.get("Chunks", [])
-                        logger.info(f"DEBUG: Processing file '{file_name}' with {len(chunks)} chunks")
                         for chunk in chunks:
                             res = {
                                 "file_name": file_name,
@@ -404,20 +367,18 @@ def load_document_sources():
     except Exception as e:
         logger.error(f"Error loading pack.json: {str(e)}")
         import traceback
-        logger.error(f"DEBUG: Full traceback: {traceback.format_exc()}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
     
     logger.info(f"Loaded {len(loaded_sources)} document chunks from pack.json")
     return loaded_sources
 
 def find_matching_documents(user_question, topics, loaded_sources, base_url, max_sources, match_threshold, max_characters):
     """Find documents matching the user question using embedding-based semantic matching"""
-    logger.info("DEBUG: Starting embedding-based document matching")
 
     try:
         import numpy as np
         from answer_rocket import AnswerRocketClient
 
-        logger.info(f"DEBUG: Matching against {len(loaded_sources)} document sources")
 
         # Initialize AnswerRocket client
         ar_client = AnswerRocketClient()
@@ -427,106 +388,32 @@ def find_matching_documents(user_question, topics, loaded_sources, base_url, max
         if topics:
             query_text += " " + " ".join([t for t in topics if t])
 
-        logger.info(f"DEBUG: Query text: {query_text}")
+        logger.info(f"Query: {query_text}")
 
         # Generate embedding for the user query
-        logger.info("DEBUG: Generating embedding for user query")
         raw_query_response = ar_client.llm.generate_embeddings([query_text])
-        logger.info(f"DEBUG: Raw query response type: {type(raw_query_response).__name__}")
 
-        # Extract embeddings from response - handle different return types
-        if isinstance(raw_query_response, list):
+        # Extract embedding vector from response
+        # The API returns GenerateEmbeddingsResponse with .embeddings list containing EmbeddingResult objects
+        if hasattr(raw_query_response, 'embeddings') and len(raw_query_response.embeddings) > 0:
+            query_embedding = raw_query_response.embeddings[0].vector
+        elif isinstance(raw_query_response, list):
             query_embedding = raw_query_response[0]
-        elif hasattr(raw_query_response, 'embeddings'):
-            # GenerateEmbeddingsResponse object with .embeddings attribute
-            embeddings_attr = raw_query_response.embeddings
-            logger.info(f"DEBUG: .embeddings type: {type(embeddings_attr)}, length: {len(embeddings_attr) if hasattr(embeddings_attr, '__len__') else 'N/A'}")
-
-            # Check if embeddings is a list of objects with vector/embedding attribute
-            first_item = embeddings_attr[0]
-            logger.info(f"DEBUG: First embedding item type: {type(first_item)}")
-            logger.info(f"DEBUG: First embedding item attributes: {[a for a in dir(first_item) if not a.startswith('_')]}")
-
-            # Try different ways to extract the actual vector
-            if isinstance(first_item, list):
-                query_embedding = first_item
-            elif hasattr(first_item, 'vector'):
-                query_embedding = first_item.vector
-            elif hasattr(first_item, 'embedding'):
-                query_embedding = first_item.embedding
-            elif hasattr(first_item, 'values'):
-                query_embedding = first_item.values
-            elif hasattr(first_item, 'data'):
-                query_embedding = first_item.data
-            else:
-                # Try to convert to list
-                query_embedding = list(first_item) if hasattr(first_item, '__iter__') else first_item
-
-        elif hasattr(raw_query_response, 'data'):
-            # Response with .data attribute
-            query_embedding = raw_query_response.data[0]
-        elif hasattr(raw_query_response, 'get'):
-            # Dict-like object
-            query_embedding = raw_query_response.get('embeddings', [raw_query_response])[0]
         else:
-            # Debug: log available attributes
-            attrs = [a for a in dir(raw_query_response) if not a.startswith('_')]
-            logger.error(f"DEBUG: Available attributes: {attrs}")
-            raise Exception(f"Cannot extract embeddings from {type(raw_query_response).__name__}")
-
-        logger.info(f"DEBUG: Query embedding type: {type(query_embedding)}, dimension: {len(query_embedding) if hasattr(query_embedding, '__len__') else 'N/A'}")
+            raise Exception(f"Unexpected embedding response structure from API")
 
         # Generate embeddings for all document chunks
-        logger.info(f"DEBUG: Generating embeddings for {len(loaded_sources)} document chunks")
         document_texts = [source['text'] for source in loaded_sources]
         raw_doc_response = ar_client.llm.generate_embeddings(document_texts)
-        logger.info(f"DEBUG: Raw doc response type: {type(raw_doc_response).__name__}")
 
-        # Extract embeddings from response
-        if isinstance(raw_doc_response, list):
+        # Extract embedding vectors from response
+        if hasattr(raw_doc_response, 'embeddings') and len(raw_doc_response.embeddings) > 0:
+            document_embeddings = [item.vector for item in raw_doc_response.embeddings]
+        elif isinstance(raw_doc_response, list):
             document_embeddings = raw_doc_response
-        elif hasattr(raw_doc_response, 'embeddings'):
-            # GenerateEmbeddingsResponse object with .embeddings attribute
-            embeddings_list = raw_doc_response.embeddings
-            logger.info(f"DEBUG: Document .embeddings type: {type(embeddings_list)}, length: {len(embeddings_list)}")
-
-            # Extract actual vectors from each embedding object
-            if embeddings_list and len(embeddings_list) > 0:
-                first_doc_item = embeddings_list[0]
-                logger.info(f"DEBUG: First doc embedding item type: {type(first_doc_item)}")
-
-                # Check how to extract the vector from each item
-                if isinstance(first_doc_item, list):
-                    document_embeddings = embeddings_list
-                elif hasattr(first_doc_item, 'vector'):
-                    document_embeddings = [item.vector for item in embeddings_list]
-                elif hasattr(first_doc_item, 'embedding'):
-                    document_embeddings = [item.embedding for item in embeddings_list]
-                elif hasattr(first_doc_item, 'values'):
-                    document_embeddings = [item.values for item in embeddings_list]
-                elif hasattr(first_doc_item, 'data'):
-                    document_embeddings = [item.data for item in embeddings_list]
-                else:
-                    # Try to convert each to list
-                    document_embeddings = [list(item) if hasattr(item, '__iter__') else item for item in embeddings_list]
-            else:
-                document_embeddings = []
-
-        elif hasattr(raw_doc_response, 'data'):
-            # Response with .data attribute
-            document_embeddings = raw_doc_response.data
-        elif hasattr(raw_doc_response, 'get'):
-            # Dict-like object
-            document_embeddings = raw_doc_response.get('embeddings', raw_doc_response)
         else:
-            # Debug: log available attributes
-            attrs = [a for a in dir(raw_doc_response) if not a.startswith('_')]
-            logger.error(f"DEBUG: Available attributes: {attrs}")
-            raise Exception(f"Cannot extract embeddings from {type(raw_doc_response).__name__}")
+            raise Exception(f"Unexpected embedding response structure from API")
 
-        logger.info(f"DEBUG: Document embeddings extracted, count: {len(document_embeddings)}")
-        if document_embeddings and len(document_embeddings) > 0:
-            logger.info(f"DEBUG: First document embedding type: {type(document_embeddings[0])}, length: {len(document_embeddings[0]) if hasattr(document_embeddings[0], '__len__') else 'N/A'}")
 
         # Calculate cosine similarity between query and each document
         scored_sources = []
@@ -538,7 +425,6 @@ def find_matching_documents(user_question, topics, loaded_sources, base_url, max
                 source_copy['match_score'] = similarity
                 source_copy['url'] = f"{base_url.rstrip('/')}/{source_copy['file_name']}#page={source_copy['chunk_index']}"
                 scored_sources.append(source_copy)
-                logger.info(f"DEBUG: Match found - {source_copy['file_name']} page {source_copy['chunk_index']}, similarity: {similarity:.3f}")
 
         # Sort by similarity score (descending)
         scored_sources.sort(key=lambda x: x['match_score'], reverse=True)
@@ -558,9 +444,9 @@ def find_matching_documents(user_question, topics, loaded_sources, base_url, max
             matches.append(source)
             chars_so_far += len(source['text'])
 
-        logger.info(f"DEBUG: Final matches: {len(matches)}")
+        logger.info(f"Found {len(matches)} matching documents")
         if matches:
-            logger.info(f"DEBUG: Top similarity scores: {[round(m['match_score'], 3) for m in matches[:3]]}")
+            logger.info(f"Top similarity scores: {[round(m['match_score'], 3) for m in matches[:3]]}")
 
         return [SimpleNamespace(**match) for match in matches]
 
@@ -610,12 +496,10 @@ def generate_rag_response(user_question, docs):
     
     try:
         # Use ArUtils for LLM calls like other skills do
-        logger.info("DEBUG: Making LLM call with ArUtils")
         from ar_analytics import ArUtils
         ar_utils = ArUtils()
         llm_response = ar_utils.get_llm_response(full_prompt)
         
-        logger.info(f"DEBUG: Got LLM response: {llm_response[:100]}...")
         
         # Parse the LLM response like the old doc_search code
         def get_between_tags(content, tag):
@@ -628,11 +512,9 @@ def generate_rag_response(user_question, docs):
         title = get_between_tags(llm_response, "title") or f"Analysis: {user_question}"
         content = get_between_tags(llm_response, "content") or llm_response
         
-        logger.info(f"DEBUG: Parsed title: {title[:50]}...")
-        logger.info(f"DEBUG: Parsed content: {content[:100]}...")
         
     except Exception as e:
-        logger.error(f"DEBUG: ArUtils LLM call failed: {e}")
+        logger.error(f"ArUtils LLM call failed: {e}")
         # Fallback to a structured response
         title = f"Analysis: {user_question}"
         content = f"<p>Based on the available documents, here's what I found regarding: <strong>{user_question}</strong></p>"
