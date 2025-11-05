@@ -431,14 +431,46 @@ def find_matching_documents(user_question, topics, loaded_sources, base_url, max
 
         # Generate embedding for the user query
         logger.info("DEBUG: Generating embedding for user query")
-        query_embedding = ar_client.llm.generate_embeddings([query_text])[0]
-        logger.info(f"DEBUG: Query embedding generated, dimension: {len(query_embedding)}")
+        raw_query_response = ar_client.llm.generate_embeddings([query_text])
+        logger.info(f"DEBUG: Raw query response type: {type(raw_query_response)}")
+
+        # Extract embeddings from response - handle different return types
+        if isinstance(raw_query_response, list):
+            query_embedding = raw_query_response[0]
+        elif hasattr(raw_query_response, 'get'):
+            # Dict-like object
+            query_embedding = raw_query_response.get('embeddings', [raw_query_response])[0]
+        elif hasattr(raw_query_response, '__iter__') and not isinstance(raw_query_response, str):
+            # Iterable (but not string)
+            query_embedding = list(raw_query_response)[0]
+        else:
+            # Try accessing as object attributes
+            logger.info(f"DEBUG: Response attributes: {dir(raw_query_response)}")
+            raise Exception(f"Unexpected embedding response type: {type(raw_query_response)}")
+
+        logger.info(f"DEBUG: Query embedding extracted, dimension: {len(query_embedding)}")
 
         # Generate embeddings for all document chunks
         logger.info(f"DEBUG: Generating embeddings for {len(loaded_sources)} document chunks")
         document_texts = [source['text'] for source in loaded_sources]
-        document_embeddings = ar_client.llm.generate_embeddings(document_texts)
-        logger.info(f"DEBUG: Document embeddings generated")
+        raw_doc_response = ar_client.llm.generate_embeddings(document_texts)
+        logger.info(f"DEBUG: Raw doc response type: {type(raw_doc_response)}")
+
+        # Extract embeddings from response
+        if isinstance(raw_doc_response, list):
+            document_embeddings = raw_doc_response
+        elif hasattr(raw_doc_response, 'get'):
+            # Dict-like object
+            document_embeddings = raw_doc_response.get('embeddings', raw_doc_response)
+        elif hasattr(raw_doc_response, '__iter__') and not isinstance(raw_doc_response, str):
+            # Iterable (but not string)
+            document_embeddings = list(raw_doc_response)
+        else:
+            # Try accessing as object attributes
+            logger.info(f"DEBUG: Response attributes: {dir(raw_doc_response)}")
+            raise Exception(f"Unexpected embedding response type: {type(raw_doc_response)}")
+
+        logger.info(f"DEBUG: Document embeddings extracted, count: {len(document_embeddings)}")
 
         # Calculate cosine similarity between query and each document
         scored_sources = []
