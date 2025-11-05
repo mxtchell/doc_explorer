@@ -439,7 +439,29 @@ def find_matching_documents(user_question, topics, loaded_sources, base_url, max
             query_embedding = raw_query_response[0]
         elif hasattr(raw_query_response, 'embeddings'):
             # GenerateEmbeddingsResponse object with .embeddings attribute
-            query_embedding = raw_query_response.embeddings[0]
+            embeddings_attr = raw_query_response.embeddings
+            logger.info(f"DEBUG: .embeddings type: {type(embeddings_attr)}, length: {len(embeddings_attr) if hasattr(embeddings_attr, '__len__') else 'N/A'}")
+
+            # Check if embeddings is a list of objects with vector/embedding attribute
+            first_item = embeddings_attr[0]
+            logger.info(f"DEBUG: First embedding item type: {type(first_item)}")
+            logger.info(f"DEBUG: First embedding item attributes: {[a for a in dir(first_item) if not a.startswith('_')]}")
+
+            # Try different ways to extract the actual vector
+            if isinstance(first_item, list):
+                query_embedding = first_item
+            elif hasattr(first_item, 'vector'):
+                query_embedding = first_item.vector
+            elif hasattr(first_item, 'embedding'):
+                query_embedding = first_item.embedding
+            elif hasattr(first_item, 'values'):
+                query_embedding = first_item.values
+            elif hasattr(first_item, 'data'):
+                query_embedding = first_item.data
+            else:
+                # Try to convert to list
+                query_embedding = list(first_item) if hasattr(first_item, '__iter__') else first_item
+
         elif hasattr(raw_query_response, 'data'):
             # Response with .data attribute
             query_embedding = raw_query_response.data[0]
@@ -452,7 +474,7 @@ def find_matching_documents(user_question, topics, loaded_sources, base_url, max
             logger.error(f"DEBUG: Available attributes: {attrs}")
             raise Exception(f"Cannot extract embeddings from {type(raw_query_response).__name__}")
 
-        logger.info(f"DEBUG: Query embedding extracted, dimension: {len(query_embedding)}")
+        logger.info(f"DEBUG: Query embedding type: {type(query_embedding)}, dimension: {len(query_embedding) if hasattr(query_embedding, '__len__') else 'N/A'}")
 
         # Generate embeddings for all document chunks
         logger.info(f"DEBUG: Generating embeddings for {len(loaded_sources)} document chunks")
@@ -465,7 +487,31 @@ def find_matching_documents(user_question, topics, loaded_sources, base_url, max
             document_embeddings = raw_doc_response
         elif hasattr(raw_doc_response, 'embeddings'):
             # GenerateEmbeddingsResponse object with .embeddings attribute
-            document_embeddings = raw_doc_response.embeddings
+            embeddings_list = raw_doc_response.embeddings
+            logger.info(f"DEBUG: Document .embeddings type: {type(embeddings_list)}, length: {len(embeddings_list)}")
+
+            # Extract actual vectors from each embedding object
+            if embeddings_list and len(embeddings_list) > 0:
+                first_doc_item = embeddings_list[0]
+                logger.info(f"DEBUG: First doc embedding item type: {type(first_doc_item)}")
+
+                # Check how to extract the vector from each item
+                if isinstance(first_doc_item, list):
+                    document_embeddings = embeddings_list
+                elif hasattr(first_doc_item, 'vector'):
+                    document_embeddings = [item.vector for item in embeddings_list]
+                elif hasattr(first_doc_item, 'embedding'):
+                    document_embeddings = [item.embedding for item in embeddings_list]
+                elif hasattr(first_doc_item, 'values'):
+                    document_embeddings = [item.values for item in embeddings_list]
+                elif hasattr(first_doc_item, 'data'):
+                    document_embeddings = [item.data for item in embeddings_list]
+                else:
+                    # Try to convert each to list
+                    document_embeddings = [list(item) if hasattr(item, '__iter__') else item for item in embeddings_list]
+            else:
+                document_embeddings = []
+
         elif hasattr(raw_doc_response, 'data'):
             # Response with .data attribute
             document_embeddings = raw_doc_response.data
@@ -479,6 +525,8 @@ def find_matching_documents(user_question, topics, loaded_sources, base_url, max
             raise Exception(f"Cannot extract embeddings from {type(raw_doc_response).__name__}")
 
         logger.info(f"DEBUG: Document embeddings extracted, count: {len(document_embeddings)}")
+        if document_embeddings and len(document_embeddings) > 0:
+            logger.info(f"DEBUG: First document embedding type: {type(document_embeddings[0])}, length: {len(document_embeddings[0]) if hasattr(document_embeddings[0], '__len__') else 'N/A'}")
 
         # Calculate cosine similarity between query and each document
         scored_sources = []
