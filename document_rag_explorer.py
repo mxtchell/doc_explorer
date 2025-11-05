@@ -338,8 +338,7 @@ def load_document_sources():
                 else:
                     pack_file = None
                     logger.warning("No pack.json found and missing environment variables for Skill Resources")
-        else:
-        
+
         if pack_file and os.path.exists(pack_file):
             logger.info(f"Loading documents from: {pack_file}")
             with open(pack_file, 'r', encoding='utf-8') as f:
