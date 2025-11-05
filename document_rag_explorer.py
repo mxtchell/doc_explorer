@@ -415,7 +415,7 @@ def find_matching_documents(user_question, topics, loaded_sources, base_url, max
 
     try:
         import numpy as np
-        from ar_analytics import AnswerRocketClient
+        from answer_rocket import AnswerRocketClient
 
         logger.info(f"DEBUG: Matching against {len(loaded_sources)} document sources")
 
