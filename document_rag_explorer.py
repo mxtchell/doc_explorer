@@ -36,9 +36,9 @@ logger = logging.getLogger(__name__)
         SkillParameter(
             name="base_url",
             parameter_type="code",
-            description="Base URL for document links",
-            required=True,
-            default_value="https://maxdemo.staging.answerrocket.com/apps/system/knowledge-base"
+            description="Base URL for document links (not used when documents have DriveFileId)",
+            required=False,
+            default_value="https://drive.google.com/file/d"
         ),
         SkillParameter(
             name="max_sources",
@@ -345,13 +345,15 @@ def load_document_sources():
                 resource_contents = json.load(f)
                 # Handle different pack.json formats
                 if isinstance(resource_contents, list):
-                    # Format: [{"File": "doc.pdf", "Chunks": [{"Text": "...", "Page": 1}]}]
+                    # Format: [{"File": "doc.pdf", "DriveFileId": "...", "Chunks": [{"Text": "...", "Page": 1}]}]
                     for processed_file in resource_contents:
                         file_name = processed_file.get("File", "unknown_file")
+                        drive_file_id = processed_file.get("DriveFileId", "")
                         chunks = processed_file.get("Chunks", [])
                         for chunk in chunks:
                             res = {
                                 "file_name": file_name,
+                                "drive_file_id": drive_file_id,
                                 "text": chunk.get("Text", ""),
                                 "description": str(chunk.get("Text", ""))[:200] + "..." if len(str(chunk.get("Text", ""))) > 200 else str(chunk.get("Text", "")),
                                 "chunk_index": chunk.get("Page", 1),
@@ -422,7 +424,11 @@ def find_matching_documents(user_question, topics, loaded_sources, base_url, max
             if similarity >= float(match_threshold):
                 source_copy = source.copy()
                 source_copy['match_score'] = similarity
-                source_copy['url'] = f"{base_url.rstrip('/')}/{source_copy['file_name']}#page={source_copy['chunk_index']}"
+                # Use Google Drive URL if DriveFileId is available, otherwise fall back to base_url
+                if source_copy.get('drive_file_id'):
+                    source_copy['url'] = f"https://drive.google.com/file/d/{source_copy['drive_file_id']}/view#page={source_copy['chunk_index']}"
+                else:
+                    source_copy['url'] = f"{base_url.rstrip('/')}/{source_copy['file_name']}#page={source_copy['chunk_index']}"
                 scored_sources.append(source_copy)
 
         # Sort by similarity score (descending)
